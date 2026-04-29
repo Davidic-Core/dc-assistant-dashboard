@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Loader } from 'lucide-react'
+import { Send, Loader, Edit2, RotateCcw, Copy, Trash2 } from 'lucide-react'
 
 export interface ChatMessage {
   id: string
@@ -24,6 +24,9 @@ export default function AIChat() {
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const handleSend = () => {
     if (!input.trim()) return
@@ -59,6 +62,56 @@ export default function AIChat() {
     }, 800)
   }
 
+  const handleEditPrompt = (messageId: string, content: string) => {
+    setEditingId(messageId)
+    setEditText(content)
+  }
+
+  const handleSaveEdit = (messageId: string) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId ? { ...msg, content: editText } : msg
+      )
+    )
+    setEditingId(null)
+    setEditText('')
+  }
+
+  const handleRegenerate = (messageId: string) => {
+    const messageIndex = messages.findIndex((m) => m.id === messageId)
+    if (messageIndex !== -1) {
+      const userMessage = messages[messageIndex - 1]
+      if (userMessage && userMessage.role === 'user') {
+        setMessages((prev) => prev.slice(0, messageIndex))
+        setIsLoading(true)
+
+        setTimeout(() => {
+          const aiMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `I&apos;ve regenerated my response about "${userMessage.content.slice(0, 30)}...". Here&apos;s a new perspective based on your request.`,
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          }
+          setMessages((prev) => [...prev, aiMessage])
+          setIsLoading(false)
+        }, 800)
+      }
+    }
+  }
+
+  const handleCopyResponse = (content: string, messageId: string) => {
+    navigator.clipboard.writeText(content)
+    setCopiedId(messageId)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const handleDeleteMessage = (messageId: string) => {
+    setMessages((prev) => prev.filter((msg) => msg.id !== messageId))
+  }
+
   return (
     <div className="flex flex-col h-full bg-card border border-card-border rounded-xl overflow-hidden">
       {/* Header */}
@@ -74,7 +127,7 @@ export default function AIChat() {
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex gap-3 ${
+            className={`flex gap-3 group ${
               message.role === 'user' ? 'justify-end' : 'justify-start'
             }`}
           >
@@ -83,17 +136,92 @@ export default function AIChat() {
                 <span className="text-xs font-bold text-accent">AI</span>
               </div>
             )}
-            <div
-              className={`max-w-xs px-4 py-2.5 rounded-lg ${
-                message.role === 'user'
-                  ? 'bg-accent text-background'
-                  : 'bg-card-border text-foreground border border-card-border'
-              }`}
-            >
-              <p className="text-sm">{message.content}</p>
-              <p className="text-xs mt-1 opacity-70">
-                {message.timestamp}
-              </p>
+            <div className="flex flex-col gap-1">
+              <div
+                className={`max-w-xs px-4 py-2.5 rounded-lg ${
+                  message.role === 'user'
+                    ? 'bg-accent text-background'
+                    : 'bg-card-border text-foreground border border-card-border'
+                }`}
+              >
+                {editingId === message.id ? (
+                  <div className="flex gap-2">
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      className="flex-1 bg-background text-foreground rounded px-2 py-1 text-sm border border-accent/50 focus:outline-none"
+                      rows={2}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm">{message.content}</p>
+                    <p className="text-xs mt-1 opacity-70">
+                      {message.timestamp}
+                    </p>
+                  </>
+                )}
+              </div>
+              {editingId === message.id ? (
+                <div className="flex gap-2 px-4">
+                  <button
+                    onClick={() => handleSaveEdit(message.id)}
+                    className="text-xs px-3 py-1 bg-accent text-background rounded hover:bg-accent-hover transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-xs px-3 py-1 bg-card-border text-foreground rounded hover:bg-card-border/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : message.role === 'assistant' ? (
+                <div className="flex gap-2 px-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleEditPrompt(message.id, message.content)}
+                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-card-border text-text-secondary hover:text-foreground transition-colors"
+                    title="Edit prompt"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => handleRegenerate(message.id)}
+                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-card-border text-text-secondary hover:text-foreground transition-colors"
+                    title="Regenerate response"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => handleCopyResponse(message.content, message.id)}
+                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-card-border text-text-secondary hover:text-foreground transition-colors"
+                    title="Copy response"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteMessage(message.id)}
+                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-red-500/20 text-text-secondary hover:text-red-400 transition-colors"
+                    title="Delete message"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                  {copiedId === message.id && (
+                    <span className="text-xs text-accent self-center">Copied!</span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex gap-2 px-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleDeleteMessage(message.id)}
+                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-red-500/20 text-text-secondary hover:text-red-400 transition-colors"
+                    title="Delete message"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
