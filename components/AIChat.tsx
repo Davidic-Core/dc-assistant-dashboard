@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Loader, Edit2, RotateCcw, Copy, Trash2 } from 'lucide-react'
+import { Send, Loader, Edit2, RotateCcw, Copy, Trash2, Check, X, Square } from 'lucide-react'
 
 export interface ChatMessage {
   id: string
@@ -180,22 +180,15 @@ export default function AIChat() {
               ) : message.role === 'assistant' ? (
                 <div className="flex gap-2 px-4 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={() => handleEditPrompt(message.id, message.content)}
-                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-card-border text-text-secondary hover:text-foreground transition-colors"
-                    title="Edit prompt"
-                  >
-                    <Edit2 className="w-3 h-3" />
-                  </button>
-                  <button
                     onClick={() => handleRegenerate(message.id)}
-                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-card-border text-text-secondary hover:text-foreground transition-colors"
+                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-card-border text-text-secondary hover:text-accent transition-colors"
                     title="Regenerate response"
                   >
                     <RotateCcw className="w-3 h-3" />
                   </button>
                   <button
                     onClick={() => handleCopyResponse(message.content, message.id)}
-                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-card-border text-text-secondary hover:text-foreground transition-colors"
+                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-card-border text-text-secondary hover:text-accent transition-colors"
                     title="Copy response"
                   >
                     <Copy className="w-3 h-3" />
@@ -213,6 +206,13 @@ export default function AIChat() {
                 </div>
               ) : (
                 <div className="flex gap-2 px-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleEditPrompt(message.id, message.content)}
+                    className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-card-border text-text-secondary hover:text-accent transition-colors"
+                    title="Edit message"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
                   <button
                     onClick={() => handleDeleteMessage(message.id)}
                     className="text-xs p-1.5 rounded bg-card-border/50 hover:bg-red-500/20 text-text-secondary hover:text-red-400 transition-colors"
@@ -244,16 +244,22 @@ export default function AIChat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSend()}
             placeholder="Ask me anything..."
             className="flex-1 bg-background border border-card-border rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+            disabled={isLoading}
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() && !isLoading}
             className="p-2.5 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors text-background flex-shrink-0"
+            title={isLoading ? 'Stop response' : 'Send message'}
           >
-            <Send className="w-4 h-4" />
+            {isLoading ? (
+              <Square className="w-4 h-4" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </button>
         </div>
       </div>

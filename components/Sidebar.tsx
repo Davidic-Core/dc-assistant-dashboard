@@ -23,6 +23,7 @@ const navItems = [
   { label: 'AI Assistant', href: '/assistant', icon: MessageSquare },
   { label: 'Notifications', href: '/notifications', icon: Bell },
   { label: 'Terminal', href: '/terminal', icon: Terminal },
+  { label: 'Environment', href: '/environment', icon: Code2 },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
