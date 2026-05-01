@@ -9,14 +9,17 @@ import {
   Save,
   Eye,
   EyeOff,
+  Bell,
 } from 'lucide-react'
+import NotificationsPanel from '@/components/NotificationsPanel'
 
-type SettingsTab = 'general' | 'ai-keys' | 'github'
+type SettingsTab = 'general' | 'ai-keys' | 'github' | 'notifications'
 
 const settingsTabs: Array<{ id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: 'general', label: 'General', icon: SettingsIcon },
   { id: 'ai-keys', label: 'AI Keys', icon: Key },
   { id: 'github', label: 'GitHub Token', icon: Github },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
 ]
 
 export default function SettingsPage() {
@@ -165,6 +168,75 @@ export default function SettingsPage() {
                     <Save className="w-4 h-4" />
                     {saved ? 'Saved!' : 'Save Keys'}
                   </button>
+                </div>
+              )}
+
+              {/* Notifications */}
+              {activeTab === 'notifications' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Notifications</h2>
+                    <p className="text-text-secondary text-sm">
+                      Manage and review your recent notifications
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-3">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                        3 Unread
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-card-border text-text-secondary">
+                        8 Total
+                      </span>
+                    </div>
+                    <a
+                      href="/notifications"
+                      className="text-sm text-accent hover:text-accent-hover font-medium transition-colors"
+                    >
+                      View full page →
+                    </a>
+                  </div>
+
+                  <NotificationsPanel
+                    notifications={[
+                      {
+                        id: '1',
+                        type: 'success',
+                        title: 'Build Successful',
+                        message: 'dc-assistant-dashboard production build completed successfully',
+                        timestamp: '10 minutes ago',
+                      },
+                      {
+                        id: '2',
+                        type: 'info',
+                        title: 'Security Alert',
+                        message: 'New dependency update available: lodash v4.17.21',
+                        timestamp: '1 hour ago',
+                      },
+                      {
+                        id: '3',
+                        type: 'alert',
+                        title: 'Failed Test',
+                        message: 'Unit tests in neural-network-framework failed: 3 failures',
+                        timestamp: '3 hours ago',
+                      },
+                      {
+                        id: '4',
+                        type: 'success',
+                        title: 'Deployment Complete',
+                        message: 'New version of distributed-cache-system deployed to production',
+                        timestamp: '5 hours ago',
+                      },
+                      {
+                        id: '5',
+                        type: 'pending',
+                        title: 'Code Review Waiting',
+                        message: 'Your PR #512 in blockchain-explorer is waiting for review',
+                        timestamp: '1 day ago',
+                      },
+                    ]}
+                  />
                 </div>
               )}
 
