@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation'
 import {
   Home,
   GitBranch,
-  Activity,
   MessageSquare,
   Bell,
   Terminal,
@@ -19,10 +18,9 @@ import {
 const navItems = [
   { label: 'Home', href: '/', icon: Home },
   { label: 'Repositories', href: '/repositories', icon: GitBranch },
-  { label: 'Live Activity', href: '/activity', icon: Activity },
+  { label: 'Terminal', href: '/terminal', icon: Terminal },
   { label: 'AI Assistant', href: '/assistant', icon: MessageSquare },
   { label: 'Notifications', href: '/notifications', icon: Bell },
-  { label: 'Terminal', href: '/terminal', icon: Terminal },
   { label: 'Environment', href: '/environment', icon: Code2 },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
