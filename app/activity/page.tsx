@@ -1,126 +1,174 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
 import LayoutWrapper from '@/components/LayoutWrapper'
 import ActivityFeed from '@/components/ActivityFeed'
-import { Calendar, TrendingUp } from 'lucide-react'
+import { Calendar, TrendingUp, RefreshCw, Loader2, GitBranch } from 'lucide-react'
+import { formatRelativeTime } from '@/lib/github-utils'
 
-const allActivities = [
-  {
-    id: '1',
-    type: 'commit' as const,
-    title: 'feat: add AI-powered code review system',
-    description: 'Implemented automated code review using machine learning models for pattern detection',
-    repo: 'dc-assistant-dashboard',
-    timestamp: '2 hours ago',
-    author: 'Davidic-Core',
-  },
-  {
-    id: '2',
-    type: 'pull_request' as const,
-    title: 'Merge: Optimize database query performance',
-    description: 'PR #234: Reduced query time by 60% using index optimization',
-    repo: 'distributed-cache-system',
-    timestamp: '4 hours ago',
-    author: 'Davidic-Core',
-  },
-  {
-    id: '3',
-    type: 'push' as const,
-    title: 'Push to main branch',
-    description: '5 commits pushed - Updates to neural network optimization',
-    repo: 'neural-network-framework',
-    timestamp: '1 day ago',
-    author: 'Davidic-Core',
-  },
-  {
-    id: '4',
-    type: 'branch' as const,
-    title: 'Created feature branch: quantum-optimization',
-    description: 'New branch created for quantum algorithm improvements',
-    repo: 'quantum-computing-lib',
-    timestamp: '2 days ago',
-    author: 'Davidic-Core',
-  },
-  {
-    id: '5',
-    type: 'commit' as const,
-    title: 'fix: resolve memory leak in websocket handler',
-    description: 'Fixed memory leak that was causing the application to consume excessive RAM over time',
-    repo: 'dc-assistant-dashboard',
-    timestamp: '3 days ago',
-    author: 'Davidic-Core',
-  },
-  {
-    id: '6',
-    type: 'pull_request' as const,
-    title: 'Merge: Add dark mode support',
-    description: 'PR #198: Implemented comprehensive dark mode with system preference detection',
-    repo: 'mobile-ui-kit',
-    timestamp: '4 days ago',
-    author: 'Davidic-Core',
-  },
-  {
-    id: '7',
-    type: 'commit' as const,
-    title: 'test: add comprehensive unit tests',
-    description: 'Added 500+ unit tests for core functionality with 95% code coverage',
-    repo: 'distributed-cache-system',
-    timestamp: '5 days ago',
-    author: 'Davidic-Core',
-  },
-  {
-    id: '8',
-    type: 'push' as const,
-    title: 'Push to development branch',
-    description: '8 commits pushed - New features for v2.0 release',
-    repo: 'blockchain-explorer',
-    timestamp: '1 week ago',
-    author: 'Davidic-Core',
-  },
-]
+interface RawActivity {
+  id: string
+  type: string
+  title: string
+  description: string
+  repo: string
+  repoUrl: string
+  timestamp: string
+  author: string
+}
+
+const VALID_TYPES = ['commit', 'pull_request', 'branch', 'push'] as const
+type FeedType = typeof VALID_TYPES[number]
 
 export default function ActivityPage() {
+  const [activities, setActivities] = useState<RawActivity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  const fetchEvents = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    try {
+      const res = await fetch('/api/github/events')
+      if (!res.ok) throw new Error(`Events API error ${res.status}`)
+      const data = await res.json()
+      setActivities(data.activities || [])
+      setLastUpdated(new Date())
+      setError(null)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchEvents()
+    const timer = setInterval(() => fetchEvents(true), 30_000)
+    return () => clearInterval(timer)
+  }, [fetchEvents])
+
+  const feedActivities = activities.map((a) => ({
+    ...a,
+    type: (VALID_TYPES.includes(a.type as FeedType) ? a.type : 'commit') as FeedType,
+    timestamp: formatRelativeTime(a.timestamp),
+  }))
+
+  const now = Date.now()
+  const weekMs = 7 * 24 * 60 * 60 * 1000
+  const monthMs = 30 * 24 * 60 * 60 * 1000
+  const thisWeek = activities.filter((a) => now - new Date(a.timestamp).getTime() < weekMs)
+  const thisMonth = activities.filter((a) => now - new Date(a.timestamp).getTime() < monthMs)
+  const repos = new Set(activities.map((a) => a.repo))
+
   return (
     <LayoutWrapper>
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-4xl font-bold text-foreground">Live Activity</h1>
-          <p className="text-text-secondary mt-2">
-            Track all your recent commits, pulls, and repository changes
-          </p>
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground">Live Activity</h1>
+            <p className="text-text-secondary mt-2">
+              Real-time events from the Davidic-Core account
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {lastUpdated && (
+              <span className="text-xs text-text-tertiary hidden sm:block">
+                Updated {formatRelativeTime(lastUpdated.toISOString())}
+              </span>
+            )}
+            <button
+              onClick={() => fetchEvents()}
+              className="flex items-center gap-2 px-3 py-2 bg-card border border-card-border rounded-lg hover:border-accent/50 transition-colors text-sm text-text-secondary hover:text-foreground"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+          </div>
         </div>
 
-        {/* Activity Stats */}
+        {/* Error */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-card border border-card-border rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-text-secondary text-sm">This Week</span>
               <Calendar className="w-4 h-4 text-accent" />
             </div>
-            <p className="text-3xl font-bold text-foreground">27</p>
-            <p className="text-xs text-text-tertiary mt-2">commits and pushes</p>
+            <p className="text-3xl font-bold text-foreground">
+              {loading ? <Loader2 className="w-6 h-6 animate-spin text-text-tertiary" /> : thisWeek.length}
+            </p>
+            <p className="text-xs text-text-tertiary mt-2">events recorded</p>
           </div>
+
           <div className="bg-card border border-card-border rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-text-secondary text-sm">This Month</span>
               <TrendingUp className="w-4 h-4 text-accent" />
             </div>
-            <p className="text-3xl font-bold text-foreground">142</p>
+            <p className="text-3xl font-bold text-foreground">
+              {loading ? <Loader2 className="w-6 h-6 animate-spin text-text-tertiary" /> : thisMonth.length}
+            </p>
             <p className="text-xs text-text-tertiary mt-2">total contributions</p>
           </div>
+
           <div className="bg-card border border-card-border rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-text-secondary text-sm">Repositories</span>
+              <span className="text-text-secondary text-sm">Active Repos</span>
+              <GitBranch className="w-4 h-4 text-accent" />
             </div>
-            <p className="text-3xl font-bold text-foreground">24</p>
-            <p className="text-xs text-text-tertiary mt-2">active projects</p>
+            <p className="text-3xl font-bold text-foreground">
+              {loading ? <Loader2 className="w-6 h-6 animate-spin text-text-tertiary" /> : repos.size}
+            </p>
+            <p className="text-xs text-text-tertiary mt-2">with recent activity</p>
           </div>
         </div>
 
-        {/* Activity Timeline */}
+        {/* Feed */}
         <div>
-          <h2 className="text-xl font-bold text-foreground mb-6">Recent Activity</h2>
-          <ActivityFeed activities={allActivities} />
+          <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
+            Recent Activity
+            {loading && <Loader2 className="w-4 h-4 animate-spin text-text-tertiary" />}
+          </h2>
+
+          {loading ? (
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="w-10 h-10 bg-card border border-card-border rounded-lg animate-pulse flex-shrink-0" />
+                  <div className="flex-1 bg-card border border-card-border rounded-lg p-4 animate-pulse">
+                    <div className="h-3 bg-card-border rounded w-2/3 mb-2" />
+                    <div className="h-3 bg-card-border rounded w-full mb-2" />
+                    <div className="h-3 bg-card-border rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : feedActivities.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <GitBranch className="w-12 h-12 text-text-tertiary mb-4" />
+              <p className="text-foreground font-medium">No recent activity found</p>
+              <p className="text-text-secondary text-sm mt-1">
+                GitHub public events may take a moment to appear
+              </p>
+            </div>
+          ) : (
+            <ActivityFeed activities={feedActivities} />
+          )}
         </div>
+
+        {!loading && feedActivities.length > 0 && (
+          <p className="text-xs text-text-tertiary text-center pb-4">
+            Showing {feedActivities.length} events • Auto-refreshes every 30s
+          </p>
+        )}
       </div>
     </LayoutWrapper>
   )
