@@ -6,28 +6,25 @@ import {
   Settings as SettingsIcon,
   Key,
   Github,
-  Terminal,
-  Code,
-  Bell,
   Save,
   Eye,
   EyeOff,
+  Bell,
+  Code2,
   Plus,
-  Edit2,
   Trash2,
-  Send,
   AlertCircle,
 } from 'lucide-react'
+import NotificationsPanel from '@/components/NotificationsPanel'
 
-type SettingsTab = 'general' | 'ai-keys' | 'github' | 'terminal' | 'environment' | 'notifications'
+type SettingsTab = 'general' | 'ai-keys' | 'github' | 'notifications' | 'environment'
 
 const settingsTabs: Array<{ id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: 'general', label: 'General', icon: SettingsIcon },
   { id: 'ai-keys', label: 'AI Keys', icon: Key },
   { id: 'github', label: 'GitHub Token', icon: Github },
-  { id: 'terminal', label: 'Terminal', icon: Terminal },
-  { id: 'environment', label: 'Environment', icon: Code },
   { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'environment', label: 'Environment', icon: Code2 },
 ]
 
 interface EnvVariable {
@@ -37,40 +34,22 @@ interface EnvVariable {
   isSecret: boolean
 }
 
-interface TerminalCommand {
-  id: string
-  command: string
-  output: string
-  timestamp: string
-}
-
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
   const [showPassword, setShowPassword] = useState(false)
   const [saved, setSaved] = useState(false)
+
   const [envVariables, setEnvVariables] = useState<EnvVariable[]>([
-    { id: '1', key: 'NODE_ENV', value: 'production', isSecret: false },
+    { id: '1', key: 'NODE_ENV', value: 'development', isSecret: false },
     { id: '2', key: 'API_BASE_URL', value: 'https://api.example.com', isSecret: false },
-    { id: '3', key: 'API_KEY', value: '••••••••••••••••', isSecret: true },
+    { id: '3', key: 'API_KEY', value: 'sk_live_123456789abcdef', isSecret: true },
+    { id: '4', key: 'GITHUB_TOKEN', value: 'ghp_xxxxxxxxxxxxxxxxxxxx', isSecret: true },
+    { id: '5', key: 'DATABASE_URL', value: 'postgresql://user:pass@localhost:5432/db', isSecret: true },
   ])
   const [newEnvKey, setNewEnvKey] = useState('')
   const [newEnvValue, setNewEnvValue] = useState('')
-  const [editingEnvId, setEditingEnvId] = useState<string | null>(null)
-  const [terminalHistory, setTerminalHistory] = useState<TerminalCommand[]>([
-    {
-      id: '1',
-      command: 'npm run build',
-      output: '> DC Assistant@1.0.0 build\n> next build\nCompiled successfully!',
-      timestamp: new Date(Date.now() - 3600000).toLocaleTimeString(),
-    },
-    {
-      id: '2',
-      command: 'git status',
-      output: 'On branch front-end\nYour branch is up to date with origin/front-end.\nnothing to commit, working tree clean',
-      timestamp: new Date(Date.now() - 1800000).toLocaleTimeString(),
-    },
-  ])
-  const [terminalInput, setTerminalInput] = useState('')
+  const [newEnvIsSecret, setNewEnvIsSecret] = useState(false)
+  const [envSaved, setEnvSaved] = useState(false)
 
   const handleSave = () => {
     setSaved(true)
@@ -81,11 +60,13 @@ export default function SettingsPage() {
     if (newEnvKey.trim()) {
       setEnvVariables([
         ...envVariables,
-        { id: Date.now().toString(), key: newEnvKey, value: newEnvValue, isSecret: false },
+        { id: Date.now().toString(), key: newEnvKey, value: newEnvValue, isSecret: newEnvIsSecret },
       ])
       setNewEnvKey('')
       setNewEnvValue('')
-      handleSave()
+      setNewEnvIsSecret(false)
+      setEnvSaved(true)
+      setTimeout(() => setEnvSaved(false), 2000)
     }
   }
 
@@ -93,7 +74,7 @@ export default function SettingsPage() {
     setEnvVariables(envVariables.filter((env) => env.id !== id))
   }
 
-  const updateEnvVariable = (id: string, field: 'key' | 'value', val: string) => {
+  const updateEnvVariable = (id: string, field: 'key' | 'value' | 'isSecret', val: string | boolean) => {
     setEnvVariables(
       envVariables.map((env) => (env.id === id ? { ...env, [field]: val } : env))
     )
@@ -105,24 +86,6 @@ export default function SettingsPage() {
         env.id === id ? { ...env, isSecret: !env.isSecret } : env
       )
     )
-  }
-
-  const executeCommand = () => {
-    if (!terminalInput.trim()) return
-
-    const newCommand: TerminalCommand = {
-      id: Date.now().toString(),
-      command: terminalInput,
-      output: `\$ ${terminalInput}\nCommand executed successfully at ${new Date().toLocaleTimeString()}`,
-      timestamp: new Date().toLocaleTimeString(),
-    }
-
-    setTerminalHistory([...terminalHistory, newCommand])
-    setTerminalInput('')
-  }
-
-  const clearTerminal = () => {
-    setTerminalHistory([])
   }
 
   return (
@@ -264,6 +227,69 @@ export default function SettingsPage() {
                 </div>
               )}
 
+              {/* Notifications */}
+              {activeTab === 'notifications' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Notifications</h2>
+                    <p className="text-text-secondary text-sm">
+                      Manage and review your recent notifications
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-3">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                        3 Unread
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-card-border text-text-secondary">
+                        8 Total
+                      </span>
+                    </div>
+                  </div>
+
+                  <NotificationsPanel
+                    notifications={[
+                      {
+                        id: '1',
+                        type: 'success',
+                        title: 'Build Successful',
+                        message: 'dc-assistant-dashboard production build completed successfully',
+                        timestamp: '10 minutes ago',
+                      },
+                      {
+                        id: '2',
+                        type: 'info',
+                        title: 'Security Alert',
+                        message: 'New dependency update available: lodash v4.17.21',
+                        timestamp: '1 hour ago',
+                      },
+                      {
+                        id: '3',
+                        type: 'alert',
+                        title: 'Failed Test',
+                        message: 'Unit tests in neural-network-framework failed: 3 failures',
+                        timestamp: '3 hours ago',
+                      },
+                      {
+                        id: '4',
+                        type: 'success',
+                        title: 'Deployment Complete',
+                        message: 'New version of distributed-cache-system deployed to production',
+                        timestamp: '5 hours ago',
+                      },
+                      {
+                        id: '5',
+                        type: 'pending',
+                        title: 'Code Review Waiting',
+                        message: 'Your PR #512 in blockchain-explorer is waiting for review',
+                        timestamp: '1 day ago',
+                      },
+                    ]}
+                  />
+                </div>
+              )}
+
               {/* GitHub Token */}
               {activeTab === 'github' && (
                 <div className="space-y-6">
@@ -308,256 +334,167 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {/* Terminal Settings */}
-              {activeTab === 'terminal' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-foreground mb-6">Terminal</h2>
-                  </div>
-
-                  {/* Terminal Window */}
-                  <div className="border border-card-border rounded-lg overflow-hidden bg-background">
-                    {/* Terminal Header */}
-                    <div className="bg-card-border px-4 py-3 flex items-center gap-2 border-b border-card-border">
-                      <div className="flex gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500/60" />
-                        <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
-                        <div className="w-3 h-3 rounded-full bg-green-500/60" />
-                      </div>
-                      <span className="text-xs text-text-secondary ml-2">DC Assistant Terminal</span>
-                      <div className="ml-auto flex items-center gap-2">
-                        <span className="text-xs text-text-tertiary">bash</span>
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      </div>
-                    </div>
-
-                    {/* Terminal Content */}
-                    <div className="p-4 space-y-3 font-mono text-sm h-64 overflow-y-auto">
-                      {terminalHistory.length === 0 ? (
-                        <div className="text-text-tertiary text-xs">
-                          No commands executed yet. Try running a command below.
-                        </div>
-                      ) : (
-                        terminalHistory.map((cmd) => (
-                          <div key={cmd.id} className="space-y-1">
-                            <div className="text-accent">
-                              <span>{'$ '}</span>
-                              <span className="text-foreground">{cmd.command}</span>
-                            </div>
-                            <div className="text-text-secondary text-xs whitespace-pre-wrap">
-                              {cmd.output}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    {/* Terminal Input */}
-                    <div className="border-t border-card-border px-4 py-3 bg-card-border/30 flex gap-2">
-                      <span className="text-accent font-mono text-sm">{'$ '}</span>
-                      <input
-                        type="text"
-                        value={terminalInput}
-                        onChange={(e) => setTerminalInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && executeCommand()}
-                        placeholder="Enter command..."
-                        className="flex-1 bg-transparent text-foreground focus:outline-none font-mono text-sm placeholder:text-text-tertiary"
-                      />
-                      <button
-                        onClick={executeCommand}
-                        className="p-1.5 text-accent hover:text-accent-hover transition-colors"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Terminal Controls */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={clearTerminal}
-                      className="px-4 py-2 bg-card-border hover:bg-card-border/80 text-foreground rounded-lg text-sm transition-colors"
-                    >
-                      Clear Log
-                    </button>
-                  </div>
-
-                  {/* Terminal Settings */}
-                  <div className="bg-card-border/30 border border-card-border rounded-lg p-4 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Shell Type
-                      </label>
-                      <select className="w-full px-4 py-2 bg-background border border-card-border rounded-lg text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm">
-                        <option>bash</option>
-                        <option>zsh</option>
-                        <option>fish</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Font Size
-                      </label>
-                      <input
-                        type="number"
-                        defaultValue="12"
-                        min="8"
-                        max="24"
-                        className="w-full px-4 py-2 bg-background border border-card-border rounded-lg text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <input type="checkbox" defaultChecked id="history" className="w-4 h-4" />
-                      <label htmlFor="history" className="text-sm text-foreground">
-                        Save command history
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Environment Variables */}
               {activeTab === 'environment' && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground mb-6">Environment Variables</h2>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Environment Variables</h2>
+                    <p className="text-text-secondary text-sm">
+                      Manage environment variables and secrets for your application
+                    </p>
                   </div>
 
                   {/* Add New Variable Section */}
-                  <div className="bg-card-border/30 border border-card-border rounded-lg p-4 space-y-3">
+                  <div className="border border-card-border rounded-lg p-4 space-y-4">
                     <div className="flex items-center gap-2">
-                      <Plus className="w-4 h-4 text-accent" />
-                      <h3 className="text-sm font-medium text-foreground">Add New Variable</h3>
+                      <Plus className="w-5 h-5 text-accent" />
+                      <h3 className="text-base font-semibold text-foreground">Add New Variable</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        value={newEnvKey}
-                        onChange={(e) => setNewEnvKey(e.target.value)}
-                        placeholder="Variable name (e.g., API_KEY)"
-                        className="px-4 py-2.5 bg-background border border-card-border rounded-lg text-foreground placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm"
-                      />
-                      <div className="flex gap-2">
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          Variable Name
+                        </label>
                         <input
                           type="text"
+                          value={newEnvKey}
+                          onChange={(e) => setNewEnvKey(e.target.value)}
+                          placeholder="e.g., API_KEY"
+                          className="w-full px-4 py-2.5 bg-background border border-card-border rounded-lg text-foreground placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          Variable Value
+                        </label>
+                        <input
+                          type={newEnvIsSecret ? 'password' : 'text'}
                           value={newEnvValue}
                           onChange={(e) => setNewEnvValue(e.target.value)}
-                          placeholder="Variable value"
-                          className="flex-1 px-4 py-2.5 bg-background border border-card-border rounded-lg text-foreground placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm"
+                          placeholder="e.g., your_secret_value"
+                          className="w-full px-4 py-2.5 bg-background border border-card-border rounded-lg text-foreground placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                         />
-                        <button
-                          onClick={addEnvVariable}
-                          className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-background rounded-lg font-medium transition-colors text-sm"
-                        >
-                          Add
-                        </button>
                       </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newEnvIsSecret}
+                          onChange={(e) => setNewEnvIsSecret(e.target.checked)}
+                          className="w-4 h-4 rounded border-card-border"
+                        />
+                        <span className="text-sm text-text-secondary">Mark as secret (hidden by default)</span>
+                      </label>
+
+                      <button
+                        onClick={addEnvVariable}
+                        disabled={!newEnvKey.trim()}
+                        className="ml-auto px-6 py-2.5 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-background rounded-lg font-medium transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        {envSaved ? 'Added!' : 'Add Variable'}
+                      </button>
                     </div>
                   </div>
 
                   {/* Environment Variables List */}
-                  <div className="space-y-2">
-                    {envVariables.map((env) => (
-                      <div
-                        key={env.id}
-                        className="bg-card-border/30 border border-card-border rounded-lg p-4 flex items-center gap-3 group"
-                      >
-                        <div className="flex-1 space-y-2">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <input
-                              type="text"
-                              value={env.key}
-                              onChange={(e) => updateEnvVariable(env.id, 'key', e.target.value)}
-                              className="px-3 py-2 bg-background border border-card-border rounded text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm"
-                            />
-                            <div className="flex gap-2">
-                              <input
-                                type={env.isSecret ? 'password' : 'text'}
-                                value={env.value}
-                                onChange={(e) => updateEnvVariable(env.id, 'value', e.target.value)}
-                                className="flex-1 px-3 py-2 bg-background border border-card-border rounded text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm"
-                              />
-                              <button
-                                onClick={() => toggleSecretVisibility(env.id)}
-                                className="px-2 py-2 text-text-tertiary hover:text-foreground transition-colors"
-                                title={env.isSecret ? 'Show value' : 'Hide value'}
-                              >
-                                {env.isSecret ? (
-                                  <EyeOff className="w-4 h-4" />
-                                ) : (
-                                  <Eye className="w-4 h-4" />
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => deleteEnvVariable(env.id)}
-                          className="p-2 text-text-tertiary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                          title="Delete variable"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                  <div className="space-y-3">
+                    <h3 className="text-base font-semibold text-foreground">Current Variables</h3>
+
+                    {envVariables.length === 0 ? (
+                      <div className="border border-card-border rounded-lg p-12 text-center">
+                        <AlertCircle className="w-12 h-12 mx-auto mb-3 text-text-tertiary opacity-50" />
+                        <p className="text-text-tertiary">No environment variables set</p>
                       </div>
-                    ))}
-                    {envVariables.length === 0 && (
-                      <div className="text-center py-8 text-text-tertiary">
-                        <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No environment variables set</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {envVariables.map((env) => (
+                          <div
+                            key={env.id}
+                            className="bg-background border border-card-border rounded-lg p-4 flex items-center gap-4 group hover:border-accent/30 transition-colors"
+                          >
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                              <div>
+                                <p className="text-xs text-text-secondary mb-1">Key</p>
+                                <input
+                                  type="text"
+                                  value={env.key}
+                                  onChange={(e) => updateEnvVariable(env.id, 'key', e.target.value)}
+                                  className="w-full px-3 py-2 bg-card border border-card-border rounded text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm font-mono"
+                                />
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-text-secondary mb-1">Value</p>
+                                <input
+                                  type={env.isSecret ? 'password' : 'text'}
+                                  value={env.value}
+                                  onChange={(e) => updateEnvVariable(env.id, 'value', e.target.value)}
+                                  className="w-full px-3 py-2 bg-card border border-card-border rounded text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm font-mono"
+                                />
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-text-secondary mb-1">Type</p>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => toggleSecretVisibility(env.id)}
+                                    className="flex-1 px-3 py-2 bg-card border border-card-border rounded text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm flex items-center justify-center gap-2 hover:border-accent/50 transition-colors"
+                                    title={env.isSecret ? 'Click to show value' : 'Click to hide value'}
+                                  >
+                                    {env.isSecret ? (
+                                      <>
+                                        <EyeOff className="w-4 h-4 text-accent" />
+                                        <span>Secret</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Eye className="w-4 h-4 text-text-tertiary" />
+                                        <span>Public</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => deleteEnvVariable(env.id)}
+                              className="p-2.5 text-text-tertiary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 rounded-lg"
+                              title="Delete variable"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
 
-                  <button
-                    onClick={handleSave}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-accent hover:bg-accent-hover text-background rounded-lg font-medium transition-colors"
-                  >
-                    <Save className="w-4 h-4" />
-                    {saved ? 'Saved!' : 'Save Variables'}
-                  </button>
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1 bg-card-border/30 border border-card-border rounded-lg p-3">
+                      <p className="text-xs text-text-secondary">
+                        <strong>Note:</strong> Variables marked as "Secret" are hidden by default. Store sensitive data like API keys and tokens as secrets.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSaved(true)
+                        setTimeout(() => setSaved(false), 2000)
+                      }}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-accent hover:bg-accent-hover text-background rounded-lg font-medium transition-colors whitespace-nowrap"
+                    >
+                      <Save className="w-4 h-4" />
+                      {saved ? 'Saved!' : 'Save All'}
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Notifications */}
-              {activeTab === 'notifications' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-foreground mb-6">Notification Preferences</h2>
-                  </div>
-
-                  <div className="space-y-4">
-                    {[
-                      { label: 'Push Notifications', enabled: true },
-                      { label: 'Email Notifications', enabled: true },
-                      { label: 'Build Alerts', enabled: true },
-                      { label: 'Pull Request Updates', enabled: true },
-                      { label: 'Weekly Digest', enabled: false },
-                    ].map((notif) => (
-                      <div key={notif.label} className="flex items-center gap-3 p-3 bg-card-border/50 rounded-lg">
-                        <input
-                          type="checkbox"
-                          defaultChecked={notif.enabled}
-                          id={notif.label}
-                          className="w-4 h-4 rounded"
-                        />
-                        <label htmlFor={notif.label} className="text-sm text-foreground">
-                          {notif.label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={handleSave}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-accent hover:bg-accent-hover text-background rounded-lg font-medium transition-colors"
-                  >
-                    <Save className="w-4 h-4" />
-                    {saved ? 'Saved!' : 'Save Preferences'}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
