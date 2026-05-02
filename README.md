@@ -15,8 +15,8 @@ DC Assistant is a comprehensive GitHub Personal Assistant Dashboard that combine
 ## Features
 
 ### Core Navigation
-- **Collapsible Sidebar** - Responsive navigation with mobile-optimized bottom nav (Home, Repositories, Live Activity, AI Assistant, Notifications, Terminal, Environment, Settings)
-- **Top Navigation Header** - Davidic-Core identity display, GitHub profile button, search bar, notification bell, and user avatar
+- **Collapsible Sidebar** - Responsive navigation with mobile-optimized bottom nav (Home, Repositories, Terminal, AI Assistant, Settings)
+- **Top Navigation Header** - Davidic-Core identity display, GitHub profile button, search bar, and notification bell
 - **Mobile-First Responsive Design** - Seamless experience across all devices with adaptive layouts
 
 ### Dashboard Sections
@@ -44,10 +44,6 @@ DC Assistant is a comprehensive GitHub Personal Assistant Dashboard that combine
    - Send icon changes to stop icon while assistant is responding
    - Smooth hover behavior and transitions
    - Realistic simulated AI responses
-6. **Notifications Panel** - Centralized alert management:
-   - Categorized notifications (comments, mentions, PRs, deployments)
-   - Read/unread status indicators
-   - Timestamp tracking
 7. **Terminal Interface** - Dedicated terminal page with:
    - Real terminal window layout with header status indicators
    - Command input field with execution
@@ -56,20 +52,12 @@ DC Assistant is a comprehensive GitHub Personal Assistant Dashboard that combine
    - Clear terminal button
    - Quick command shortcuts (Build, Dev Server, Tests, Git commands)
    - Shell type and settings indicators
-8. **Environment Variables** - Dedicated environment management page with:
-   - Add new variable form with key/value inputs
-   - Edit existing variables inline
-   - Delete variable functionality
-   - Show/hide secrets toggle for sensitive values
-   - Dynamic variable management on the fly
-   - Variable list with visual feedback
-9. **Settings Page** - Comprehensive configuration with 6 tabs:
+8. **Settings Page** - Comprehensive configuration with 5 tabs:
    - **General** - Username, email, theme preferences
    - **AI Keys** - OpenAI, Anthropic, Google Gemini API key management
    - **GitHub Token** - Personal access token configuration with verification status
-   - **Terminal** - Real terminal interface with command execution, shell settings
-   - **Environment** - Dynamic environment variable management
-   - **Notifications** - Notification preference toggles
+   - **Notifications** - Manage and review recent notifications
+   - **Environment** - Dynamic environment variable management (add/edit/delete/show-hide secrets)
 
 ## Design System
 
@@ -108,10 +96,8 @@ dc-assistant-dashboard/
 │   ├── repositories/        # Repository browser
 │   ├── activity/            # Live activity feed
 │   ├── assistant/           # AI chat page
-│   ├── notifications/       # Notifications center
 │   ├── terminal/            # Terminal interface (real interface)
-│   ├── environment/         # Environment variables page (new)
-│   └── settings/            # Settings with 6 tabs
+│   └── settings/            # Settings with 5 tabs (General, AI Keys, GitHub Token, Notifications, Environment)
 ├── components/
 │   ├── Sidebar.tsx          # Navigation sidebar
 │   ├── Header.tsx           # Top navigation header
@@ -138,11 +124,10 @@ dc-assistant-dashboard/
 
 ### Dedicated Pages
 - ✨ **Terminal Page** - Full-featured terminal interface with real command execution UI, command history with copy functionality, and quick command shortcuts
-- ✨ **Environment Page** - Complete environment variable management with add/edit/delete/show-hide secret functionality, real-time variable updates
 
 ### Settings Page Refinements
-- ✨ Terminal Tab - Integrated terminal interface with command execution and settings
-- ✨ Environment Tab - Dynamic environment variable management
+- ✨ Environment Tab - Dynamic environment variable management (moved from standalone page into Settings)
+- ✨ Notifications Tab - Notification management consolidated inside Settings
 - ✨ Show/Hide Secrets - Toggle password visibility for sensitive variables
 - ✨ Dynamic Variable Management - Add/remove variables on the fly
 

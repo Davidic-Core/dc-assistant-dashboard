@@ -10,26 +10,82 @@ import {
   Eye,
   EyeOff,
   Bell,
+  Code2,
+  Plus,
+  Trash2,
+  AlertCircle,
 } from 'lucide-react'
 import NotificationsPanel from '@/components/NotificationsPanel'
 
-type SettingsTab = 'general' | 'ai-keys' | 'github' | 'notifications'
+type SettingsTab = 'general' | 'ai-keys' | 'github' | 'notifications' | 'environment'
 
 const settingsTabs: Array<{ id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: 'general', label: 'General', icon: SettingsIcon },
   { id: 'ai-keys', label: 'AI Keys', icon: Key },
   { id: 'github', label: 'GitHub Token', icon: Github },
   { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'environment', label: 'Environment', icon: Code2 },
 ]
+
+interface EnvVariable {
+  id: string
+  key: string
+  value: string
+  isSecret: boolean
+}
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
   const [showPassword, setShowPassword] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  const [envVariables, setEnvVariables] = useState<EnvVariable[]>([
+    { id: '1', key: 'NODE_ENV', value: 'development', isSecret: false },
+    { id: '2', key: 'API_BASE_URL', value: 'https://api.example.com', isSecret: false },
+    { id: '3', key: 'API_KEY', value: 'sk_live_123456789abcdef', isSecret: true },
+    { id: '4', key: 'GITHUB_TOKEN', value: 'ghp_xxxxxxxxxxxxxxxxxxxx', isSecret: true },
+    { id: '5', key: 'DATABASE_URL', value: 'postgresql://user:pass@localhost:5432/db', isSecret: true },
+  ])
+  const [newEnvKey, setNewEnvKey] = useState('')
+  const [newEnvValue, setNewEnvValue] = useState('')
+  const [newEnvIsSecret, setNewEnvIsSecret] = useState(false)
+  const [envSaved, setEnvSaved] = useState(false)
+
   const handleSave = () => {
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const addEnvVariable = () => {
+    if (newEnvKey.trim()) {
+      setEnvVariables([
+        ...envVariables,
+        { id: Date.now().toString(), key: newEnvKey, value: newEnvValue, isSecret: newEnvIsSecret },
+      ])
+      setNewEnvKey('')
+      setNewEnvValue('')
+      setNewEnvIsSecret(false)
+      setEnvSaved(true)
+      setTimeout(() => setEnvSaved(false), 2000)
+    }
+  }
+
+  const deleteEnvVariable = (id: string) => {
+    setEnvVariables(envVariables.filter((env) => env.id !== id))
+  }
+
+  const updateEnvVariable = (id: string, field: 'key' | 'value' | 'isSecret', val: string | boolean) => {
+    setEnvVariables(
+      envVariables.map((env) => (env.id === id ? { ...env, [field]: val } : env))
+    )
+  }
+
+  const toggleSecretVisibility = (id: string) => {
+    setEnvVariables(
+      envVariables.map((env) =>
+        env.id === id ? { ...env, isSecret: !env.isSecret } : env
+      )
+    )
   }
 
   return (
@@ -190,12 +246,6 @@ export default function SettingsPage() {
                         8 Total
                       </span>
                     </div>
-                    <a
-                      href="/notifications"
-                      className="text-sm text-accent hover:text-accent-hover font-medium transition-colors"
-                    >
-                      View full page →
-                    </a>
                   </div>
 
                   <NotificationsPanel
@@ -281,6 +331,167 @@ export default function SettingsPage() {
                     <Save className="w-4 h-4" />
                     {saved ? 'Saved!' : 'Save Token'}
                   </button>
+                </div>
+              )}
+
+              {/* Environment Variables */}
+              {activeTab === 'environment' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Environment Variables</h2>
+                    <p className="text-text-secondary text-sm">
+                      Manage environment variables and secrets for your application
+                    </p>
+                  </div>
+
+                  {/* Add New Variable Section */}
+                  <div className="border border-card-border rounded-lg p-4 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Plus className="w-5 h-5 text-accent" />
+                      <h3 className="text-base font-semibold text-foreground">Add New Variable</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          Variable Name
+                        </label>
+                        <input
+                          type="text"
+                          value={newEnvKey}
+                          onChange={(e) => setNewEnvKey(e.target.value)}
+                          placeholder="e.g., API_KEY"
+                          className="w-full px-4 py-2.5 bg-background border border-card-border rounded-lg text-foreground placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          Variable Value
+                        </label>
+                        <input
+                          type={newEnvIsSecret ? 'password' : 'text'}
+                          value={newEnvValue}
+                          onChange={(e) => setNewEnvValue(e.target.value)}
+                          placeholder="e.g., your_secret_value"
+                          className="w-full px-4 py-2.5 bg-background border border-card-border rounded-lg text-foreground placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newEnvIsSecret}
+                          onChange={(e) => setNewEnvIsSecret(e.target.checked)}
+                          className="w-4 h-4 rounded border-card-border"
+                        />
+                        <span className="text-sm text-text-secondary">Mark as secret (hidden by default)</span>
+                      </label>
+
+                      <button
+                        onClick={addEnvVariable}
+                        disabled={!newEnvKey.trim()}
+                        className="ml-auto px-6 py-2.5 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-background rounded-lg font-medium transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        {envSaved ? 'Added!' : 'Add Variable'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Environment Variables List */}
+                  <div className="space-y-3">
+                    <h3 className="text-base font-semibold text-foreground">Current Variables</h3>
+
+                    {envVariables.length === 0 ? (
+                      <div className="border border-card-border rounded-lg p-12 text-center">
+                        <AlertCircle className="w-12 h-12 mx-auto mb-3 text-text-tertiary opacity-50" />
+                        <p className="text-text-tertiary">No environment variables set</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {envVariables.map((env) => (
+                          <div
+                            key={env.id}
+                            className="bg-background border border-card-border rounded-lg p-4 flex items-center gap-4 group hover:border-accent/30 transition-colors"
+                          >
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                              <div>
+                                <p className="text-xs text-text-secondary mb-1">Key</p>
+                                <input
+                                  type="text"
+                                  value={env.key}
+                                  onChange={(e) => updateEnvVariable(env.id, 'key', e.target.value)}
+                                  className="w-full px-3 py-2 bg-card border border-card-border rounded text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm font-mono"
+                                />
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-text-secondary mb-1">Value</p>
+                                <input
+                                  type={env.isSecret ? 'password' : 'text'}
+                                  value={env.value}
+                                  onChange={(e) => updateEnvVariable(env.id, 'value', e.target.value)}
+                                  className="w-full px-3 py-2 bg-card border border-card-border rounded text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm font-mono"
+                                />
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-text-secondary mb-1">Type</p>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => toggleSecretVisibility(env.id)}
+                                    className="flex-1 px-3 py-2 bg-card border border-card-border rounded text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm flex items-center justify-center gap-2 hover:border-accent/50 transition-colors"
+                                    title={env.isSecret ? 'Click to show value' : 'Click to hide value'}
+                                  >
+                                    {env.isSecret ? (
+                                      <>
+                                        <EyeOff className="w-4 h-4 text-accent" />
+                                        <span>Secret</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Eye className="w-4 h-4 text-text-tertiary" />
+                                        <span>Public</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => deleteEnvVariable(env.id)}
+                              className="p-2.5 text-text-tertiary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 rounded-lg"
+                              title="Delete variable"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1 bg-card-border/30 border border-card-border rounded-lg p-3">
+                      <p className="text-xs text-text-secondary">
+                        <strong>Note:</strong> Variables marked as "Secret" are hidden by default. Store sensitive data like API keys and tokens as secrets.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSaved(true)
+                        setTimeout(() => setSaved(false), 2000)
+                      }}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-accent hover:bg-accent-hover text-background rounded-lg font-medium transition-colors whitespace-nowrap"
+                    >
+                      <Save className="w-4 h-4" />
+                      {saved ? 'Saved!' : 'Save All'}
+                    </button>
+                  </div>
                 </div>
               )}
 
