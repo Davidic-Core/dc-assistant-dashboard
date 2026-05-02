@@ -3,7 +3,7 @@ import StatsCard from '@/components/StatsCard'
 import RepositoryCard from '@/components/RepositoryCard'
 import ActivityFeed from '@/components/ActivityFeed'
 import AIChat from '@/components/AIChat'
-import NotificationsPanel from '@/components/NotificationsPanel'
+import EnvironmentPanel from '@/components/EnvironmentPanel'
 import TerminalPreview from '@/components/TerminalPreview'
 import { GitBranch, Star, Users, GitCommit } from 'lucide-react'
 
@@ -103,30 +103,6 @@ const mockActivities = [
   },
 ]
 
-const mockNotifications = [
-  {
-    id: '1',
-    type: 'success' as const,
-    title: 'Build Successful',
-    message: 'dc-assistant-dashboard production build completed successfully',
-    timestamp: '10 minutes ago',
-  },
-  {
-    id: '2',
-    type: 'info' as const,
-    title: 'Security Alert',
-    message: 'New dependency update available: lodash v4.17.21',
-    timestamp: '1 hour ago',
-  },
-  {
-    id: '3',
-    type: 'alert' as const,
-    title: 'Failed Test',
-    message: 'Unit tests in neural-network-framework failed: 3 failures',
-    timestamp: '3 hours ago',
-  },
-]
-
 export default function Dashboard() {
   return (
     <LayoutWrapper>
@@ -207,10 +183,10 @@ export default function Dashboard() {
             <ActivityFeed activities={mockActivities} />
           </div>
 
-          {/* Notifications */}
+          {/* Environment */}
           <div>
-            <h2 className="text-xl font-bold text-foreground mb-4">Notifications</h2>
-            <NotificationsPanel notifications={mockNotifications} />
+            <h2 className="text-xl font-bold text-foreground mb-4">Environment</h2>
+            <EnvironmentPanel />
           </div>
         </div>
 
