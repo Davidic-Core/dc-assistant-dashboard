@@ -169,21 +169,6 @@ export default function Header() {
             <ChevronDown className="w-4 h-4 text-text-tertiary" />
           </button>
 
-          {/* Profile Dropdown */}
-          {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-card border border-card-border rounded-lg shadow-lg py-2 z-50">
-              <button className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-card-border transition-colors">
-                Profile
-              </button>
-              <button className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-card-border transition-colors">
-                Preferences
-              </button>
-              <hr className="my-2 border-card-border" />
-              <button className="w-full text-left px-4 py-2 text-sm text-text-secondary hover:text-foreground hover:bg-card-border transition-colors">
-                Sign Out
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </header>

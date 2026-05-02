@@ -26,7 +26,10 @@ A Next.js GitHub Personal Assistant Dashboard for the **Davidic-Core** GitHub ac
 - `components/RepositoryCard.tsx` — Repo card with GitHub link, private badge, open issues
 - `components/ActivityFeed.tsx` — Timeline with clickable repo links
 - `components/Header.tsx`, `Sidebar.tsx`, `LayoutWrapper.tsx` — Layout shell
-- `components/StatsCard.tsx`, `AIChat.tsx`, `EnvironmentPanel.tsx`, `TerminalPreview.tsx`
+- `components/StatsCard.tsx`, `AIChat.tsx`, `EnvironmentPanel.tsx`, `TerminalPreview.tsx`, `NotificationsPanel.tsx`
+
+### Navigation Structure
+Sidebar links: Home, Repositories, Terminal, AI Assistant, Settings (Environment and Notifications are tabs within Settings).
 
 ### Utilities
 - `lib/github-utils.ts` — `formatRelativeTime()`, `formatNumber()` helpers
