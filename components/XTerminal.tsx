@@ -1,13 +1,27 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 
-export default function XTerminal() {
+const TERMUX_BRIDGE_URL = 'https://respiratory-noted-per-theatre.trycloudflare.com'
+
+type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
+
+interface XTerminalProps {
+  onStatusChange?: (status: ConnectionStatus) => void
+}
+
+export default function XTerminal({ onStatusChange }: XTerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<any>(null)
   const socketRef = useRef<any>(null)
   const fitAddonRef = useRef<any>(null)
   const cleanedUpRef = useRef(false)
+  const [status, setStatus] = useState<ConnectionStatus>('connecting')
+
+  const updateStatus = useCallback((s: ConnectionStatus) => {
+    setStatus(s)
+    onStatusChange?.(s)
+  }, [onStatusChange])
 
   const initTerminal = useCallback(async () => {
     if (!containerRef.current || cleanedUpRef.current) return
@@ -53,7 +67,7 @@ export default function XTerminal() {
       lineHeight: 1.4,
       cursorBlink: true,
       convertEol: true,
-      scrollback: 1000,
+      scrollback: 2000,
       allowTransparency: true,
     })
 
@@ -69,30 +83,56 @@ export default function XTerminal() {
     fitAddonRef.current = fitAddon
 
     term.writeln('\x1b[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m')
-    term.writeln('\x1b[1;32m  DC Assistant Terminal\x1b[0m')
+    term.writeln('\x1b[1;32m  DC Assistant  ·  Termux Bridge\x1b[0m')
     term.writeln('\x1b[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m')
-    term.writeln('\x1b[90mConnecting to backend shell...\x1b[0m')
+    term.writeln(`\x1b[90mBridge: ${TERMUX_BRIDGE_URL}\x1b[0m`)
+    term.writeln('\x1b[90mWaiting for your phone to connect...\x1b[0m\r\n')
 
-    const socket = io('/', {
-      path: '/socket.io',
+    updateStatus('connecting')
+
+    const socket = io(TERMUX_BRIDGE_URL, {
       transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
     })
     socketRef.current = socket
 
     socket.on('connect', () => {
-      term.writeln('\x1b[32m✓ Connected — real bash session active\x1b[0m\r\n')
+      if (cleanedUpRef.current) return
+      updateStatus('connected')
+      term.writeln('\x1b[32m✓ Termux phone connected — live session active\x1b[0m\r\n')
     })
 
     socket.on('output', (data: string) => {
+      if (cleanedUpRef.current) return
       term.write(data)
     })
 
     socket.on('connect_error', (err: Error) => {
-      term.writeln(`\x1b[31m✗ Connection error: ${err.message}\x1b[0m`)
+      if (cleanedUpRef.current) return
+      updateStatus('error')
+      term.writeln(`\x1b[31m✗ Bridge unreachable: ${err.message}\x1b[0m`)
+      term.writeln('\x1b[90m  Retrying — make sure the Cloudflare tunnel is running on your phone.\x1b[0m')
     })
 
-    socket.on('disconnect', () => {
-      term.writeln('\r\n\x1b[31m✗ Disconnected from server\x1b[0m')
+    socket.on('disconnect', (reason: string) => {
+      if (cleanedUpRef.current) return
+      updateStatus('disconnected')
+      term.writeln(`\r\n\x1b[33m⚡ Phone disconnected (${reason})\x1b[0m`)
+      term.writeln('\x1b[90m  Session paused — reconnect your phone to resume.\x1b[0m')
+    })
+
+    socket.on('reconnect', (attempt: number) => {
+      if (cleanedUpRef.current) return
+      updateStatus('connecting')
+      term.writeln(`\x1b[90m  Reconnecting... (attempt ${attempt})\x1b[0m`)
+    })
+
+    socket.on('reconnect_failed', () => {
+      if (cleanedUpRef.current) return
+      updateStatus('error')
+      term.writeln('\x1b[31m✗ Could not re-establish bridge after multiple attempts.\x1b[0m')
+      term.writeln('\x1b[90m  Use the refresh button to try again.\x1b[0m')
     })
 
     term.onData((data: string) => {
@@ -111,7 +151,7 @@ export default function XTerminal() {
     return () => {
       window.removeEventListener('resize', handleResize)
     }
-  }, [])
+  }, [updateStatus])
 
   useEffect(() => {
     cleanedUpRef.current = false
@@ -130,10 +170,64 @@ export default function XTerminal() {
   }, [initTerminal])
 
   return (
-    <div
-      ref={containerRef}
-      style={{ width: '100%', height: '100%' }}
-      className="xterm-container"
-    />
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div
+        ref={containerRef}
+        style={{ width: '100%', height: '100%' }}
+        className="xterm-container"
+      />
+      <div
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          pointerEvents: 'none',
+        }}
+      >
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor:
+              status === 'connected'
+                ? '#10b981'
+                : status === 'connecting'
+                ? '#fbbf24'
+                : '#f87171',
+            boxShadow:
+              status === 'connected'
+                ? '0 0 6px #10b981'
+                : status === 'connecting'
+                ? '0 0 6px #fbbf24'
+                : 'none',
+            display: 'inline-block',
+          }}
+        />
+        <span
+          style={{
+            fontSize: 11,
+            fontFamily: 'monospace',
+            color:
+              status === 'connected'
+                ? '#10b981'
+                : status === 'connecting'
+                ? '#fbbf24'
+                : '#f87171',
+          }}
+        >
+          {status === 'connected'
+            ? 'phone linked'
+            : status === 'connecting'
+            ? 'waiting...'
+            : status === 'error'
+            ? 'bridge error'
+            : 'disconnected'}
+        </span>
+      </div>
+    </div>
   )
 }

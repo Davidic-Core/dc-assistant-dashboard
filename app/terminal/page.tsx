@@ -3,31 +3,48 @@
 import { useCallback, useState } from 'react'
 import dynamic from 'next/dynamic'
 import LayoutWrapper from '@/components/LayoutWrapper'
-import { Maximize2, Minimize2, RefreshCw } from 'lucide-react'
+import { Maximize2, Minimize2, RefreshCw, Smartphone } from 'lucide-react'
+
+const BRIDGE_URL = 'https://respiratory-noted-per-theatre.trycloudflare.com'
 
 const XTerminal = dynamic(() => import('@/components/XTerminal'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-full text-text-tertiary font-mono text-sm">
-      <span className="animate-pulse">Loading terminal...</span>
+      <span className="animate-pulse">Initialising terminal...</span>
     </div>
   ),
 })
 
-const quickCommands = [
-  { title: 'Git Status', command: 'git status', description: 'Show working tree status' },
-  { title: 'List Files', command: 'ls -la', description: 'List all files with details' },
-  { title: 'Git Log', command: 'git log --oneline -15', description: 'Show recent commits' },
-  { title: 'Node Version', command: 'node --version && npm --version', description: 'Check runtime versions' },
-  { title: 'Check Branch', command: 'git branch -a', description: 'List all branches' },
-  { title: 'NPM List', command: 'npm list --depth=0', description: 'List dependencies' },
-]
-
 export default function TerminalPage() {
   const [sessionKey, setSessionKey] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting')
 
   const newSession = useCallback(() => setSessionKey((k) => k + 1), [])
+
+  const statusColor =
+    connectionStatus === 'connected'
+      ? 'text-accent'
+      : connectionStatus === 'connecting'
+      ? 'text-yellow-400'
+      : 'text-red-400'
+
+  const statusDot =
+    connectionStatus === 'connected'
+      ? 'bg-accent animate-pulse'
+      : connectionStatus === 'connecting'
+      ? 'bg-yellow-400 animate-pulse'
+      : 'bg-red-400'
+
+  const statusLabel =
+    connectionStatus === 'connected'
+      ? 'Phone linked'
+      : connectionStatus === 'connecting'
+      ? 'Waiting for phone...'
+      : connectionStatus === 'error'
+      ? 'Bridge error'
+      : 'Disconnected'
 
   return (
     <LayoutWrapper>
@@ -35,8 +52,22 @@ export default function TerminalPage() {
         <div>
           <h1 className="text-4xl font-bold text-foreground">Terminal</h1>
           <p className="text-text-secondary mt-2">
-            Live bash shell — commands execute on the server in real time
+            Live Termux session streamed from your phone via Cloudflare tunnel
           </p>
+        </div>
+
+        {/* Bridge info bar */}
+        <div className="flex items-center gap-3 bg-card border border-card-border rounded-lg px-4 py-3">
+          <Smartphone className="w-4 h-4 text-text-secondary flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-text-secondary font-mono truncate">
+              Bridge: <span className="text-accent">{BRIDGE_URL}</span>
+            </p>
+          </div>
+          <div className={`flex items-center gap-2 ${statusColor}`}>
+            <div className={`w-2 h-2 rounded-full ${statusDot}`} />
+            <span className="text-xs font-mono">{statusLabel}</span>
+          </div>
         </div>
 
         <div
@@ -51,14 +82,14 @@ export default function TerminalPage() {
               <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
               <div className="w-3 h-3 rounded-full bg-green-500/70" />
             </div>
-            <span className="text-xs text-text-secondary ml-2 font-mono">bash — DC Assistant</span>
+            <span className="text-xs text-text-secondary ml-2 font-mono">termux — Davidic-Core</span>
             <div className="ml-auto flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-              <span className="text-xs text-text-tertiary font-mono">live</span>
+              <div className={`w-2 h-2 rounded-full ${statusDot}`} />
+              <span className={`text-xs font-mono ${statusColor}`}>{statusLabel}</span>
               <button
                 onClick={newSession}
                 className="p-1 hover:bg-card-border/80 rounded transition-colors text-text-tertiary hover:text-foreground"
-                title="Start new session"
+                title="Reconnect"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
@@ -81,44 +112,20 @@ export default function TerminalPage() {
             className="flex-1 p-2"
             style={{ height: fullscreen ? 'calc(100% - 44px)' : '420px' }}
           >
-            <XTerminal key={sessionKey} />
+            <XTerminal key={sessionKey} onStatusChange={setConnectionStatus} />
           </div>
         </div>
 
         {!fullscreen && (
-          <>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground mb-4">Quick Commands</h2>
-              <p className="text-xs text-text-tertiary mb-3">
-                Click the terminal above and type any command — or use these shortcuts:
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {quickCommands.map((cmd, i) => (
-                  <div
-                    key={i}
-                    className="text-left bg-card border border-card-border rounded-lg p-4"
-                  >
-                    <p className="font-semibold text-foreground text-sm">{cmd.title}</p>
-                    <code className="block text-xs text-accent font-mono mt-2 bg-background px-2 py-1 rounded">
-                      {cmd.command}
-                    </code>
-                    <p className="text-xs text-text-secondary mt-2">{cmd.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-card border border-card-border rounded-lg p-4">
-              <p className="text-sm text-text-secondary">
-                <strong className="text-foreground">Live Terminal:</strong> Commands run in a real{' '}
-                <code className="text-accent font-mono text-xs bg-background px-1 py-0.5 rounded">
-                  bash
-                </code>{' '}
-                session on the server. Output streams back via WebSocket in real time.{' '}
-                Use the <RefreshCw className="w-3 h-3 inline mx-0.5" /> button to start a fresh shell session.
-              </p>
-            </div>
-          </>
+          <div className="bg-card border border-card-border rounded-lg p-4 space-y-2">
+            <p className="text-sm font-semibold text-foreground">How it works</p>
+            <ul className="text-sm text-text-secondary space-y-1 list-disc list-inside">
+              <li>Your phone runs a Socket.io bridge server inside Termux</li>
+              <li>Cloudflare Tunnel exposes it publicly — no port-forwarding needed</li>
+              <li>This dashboard connects to the tunnel URL and streams your shell in real time</li>
+              <li>Use the <RefreshCw className="w-3 h-3 inline mx-0.5" /> button to reconnect if the bridge drops</li>
+            </ul>
+          </div>
         )}
       </div>
     </LayoutWrapper>
