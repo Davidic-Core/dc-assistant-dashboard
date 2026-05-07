@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 
-const TERMUX_BRIDGE_URL = 'https://respiratory-noted-per-theatre.trycloudflare.com'
+const BRIDGE_URL =
+  process.env.NEXT_PUBLIC_TERMUX_BRIDGE_URL ||
+  'https://respiratory-noted-per-theatre.trycloudflare.com'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
@@ -94,13 +96,16 @@ export default function XTerminal({
     term.writeln('\x1b[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m')
     term.writeln('\x1b[1;32m  DC Assistant  ·  Termux Bridge\x1b[0m')
     term.writeln('\x1b[33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m')
-    term.writeln(`\x1b[90mBridge: ${TERMUX_BRIDGE_URL}\x1b[0m`)
+    term.writeln(`\x1b[90mBridge: ${BRIDGE_URL}\x1b[0m`)
     term.writeln('\x1b[90mWaiting for your phone to connect...\x1b[0m\r\n')
 
     updateStatus('connecting')
 
-    const socket = io(TERMUX_BRIDGE_URL, {
-      transports: ['websocket', 'polling'],
+    console.log(`Bridge attempting connection to: ${BRIDGE_URL}`)
+
+    const socket = io(BRIDGE_URL, {
+      transports: ['websocket'],
+      upgrade: false,
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,
     })
@@ -236,8 +241,7 @@ export default function XTerminal({
           }}
         >
           {status === 'connected' ? 'Online (Termux)' :
-           status === 'connecting' ? 'Connecting...' :
-           status === 'error' ? 'Offline' : 'Offline'}
+           status === 'connecting' ? 'Connecting...' : 'Offline'}
         </span>
       </div>
     </div>
