@@ -4,18 +4,27 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 
 const TERMUX_BRIDGE_URL = 'https://respiratory-noted-per-theatre.trycloudflare.com'
 
-type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
+export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
-interface XTerminalProps {
+export interface XTerminalProps {
   onStatusChange?: (status: ConnectionStatus) => void
+  onLastCommand?: (cmd: string) => void
+  onSessionStart?: (time: Date) => void
+  onSessionEnd?: () => void
 }
 
-export default function XTerminal({ onStatusChange }: XTerminalProps) {
+export default function XTerminal({
+  onStatusChange,
+  onLastCommand,
+  onSessionStart,
+  onSessionEnd,
+}: XTerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<any>(null)
   const socketRef = useRef<any>(null)
   const fitAddonRef = useRef<any>(null)
   const cleanedUpRef = useRef(false)
+  const inputBufferRef = useRef('')
   const [status, setStatus] = useState<ConnectionStatus>('connecting')
 
   const updateStatus = useCallback((s: ConnectionStatus) => {
@@ -100,10 +109,12 @@ export default function XTerminal({ onStatusChange }: XTerminalProps) {
     socket.on('connect', () => {
       if (cleanedUpRef.current) return
       updateStatus('connected')
-      term.writeln('\x1b[32m✓ Termux phone connected — live session active\x1b[0m\r\n')
+      onSessionStart?.(new Date())
+      inputBufferRef.current = ''
+      term.writeln('\x1b[32m✓ Online (Termux) — live session active\x1b[0m\r\n')
     })
 
-    socket.on('output', (data: string) => {
+    socket.on('terminal-output', (data: string) => {
       if (cleanedUpRef.current) return
       term.write(data)
     })
@@ -118,14 +129,15 @@ export default function XTerminal({ onStatusChange }: XTerminalProps) {
     socket.on('disconnect', (reason: string) => {
       if (cleanedUpRef.current) return
       updateStatus('disconnected')
-      term.writeln(`\r\n\x1b[33m⚡ Phone disconnected (${reason})\x1b[0m`)
+      onSessionEnd?.()
+      term.writeln(`\r\n\x1b[33m⚡ Offline — phone disconnected (${reason})\x1b[0m`)
       term.writeln('\x1b[90m  Session paused — reconnect your phone to resume.\x1b[0m')
     })
 
     socket.on('reconnect', (attempt: number) => {
       if (cleanedUpRef.current) return
       updateStatus('connecting')
-      term.writeln(`\x1b[90m  Reconnecting... (attempt ${attempt})\x1b[0m`)
+      term.writeln(`\x1b[90m  Connecting... (attempt ${attempt})\x1b[0m`)
     })
 
     socket.on('reconnect_failed', () => {
@@ -136,7 +148,17 @@ export default function XTerminal({ onStatusChange }: XTerminalProps) {
     })
 
     term.onData((data: string) => {
-      socket.emit('input', data)
+      socket.emit('terminal-input', data)
+
+      if (data === '\r' || data === '\n') {
+        const trimmed = inputBufferRef.current.trim()
+        if (trimmed) onLastCommand?.(trimmed)
+        inputBufferRef.current = ''
+      } else if (data === '\x7f') {
+        inputBufferRef.current = inputBufferRef.current.slice(0, -1)
+      } else if (data.length === 1 && data >= ' ') {
+        inputBufferRef.current += data
+      }
     })
 
     const handleResize = () => {
@@ -151,7 +173,7 @@ export default function XTerminal({ onStatusChange }: XTerminalProps) {
     return () => {
       window.removeEventListener('resize', handleResize)
     }
-  }, [updateStatus])
+  }, [updateStatus, onLastCommand, onSessionStart, onSessionEnd])
 
   useEffect(() => {
     cleanedUpRef.current = false
@@ -185,26 +207,23 @@ export default function XTerminal({ onStatusChange }: XTerminalProps) {
           alignItems: 'center',
           gap: 6,
           pointerEvents: 'none',
+          background: 'rgba(10,10,10,0.75)',
+          borderRadius: 6,
+          padding: '2px 8px',
         }}
       >
         <span
           style={{
-            width: 8,
-            height: 8,
+            width: 7,
+            height: 7,
             borderRadius: '50%',
-            backgroundColor:
-              status === 'connected'
-                ? '#10b981'
-                : status === 'connecting'
-                ? '#fbbf24'
-                : '#f87171',
-            boxShadow:
-              status === 'connected'
-                ? '0 0 6px #10b981'
-                : status === 'connecting'
-                ? '0 0 6px #fbbf24'
-                : 'none',
             display: 'inline-block',
+            backgroundColor:
+              status === 'connected' ? '#10b981' :
+              status === 'connecting' ? '#fbbf24' : '#f87171',
+            boxShadow:
+              status === 'connected' ? '0 0 6px #10b981' :
+              status === 'connecting' ? '0 0 6px #fbbf24' : 'none',
           }}
         />
         <span
@@ -212,20 +231,13 @@ export default function XTerminal({ onStatusChange }: XTerminalProps) {
             fontSize: 11,
             fontFamily: 'monospace',
             color:
-              status === 'connected'
-                ? '#10b981'
-                : status === 'connecting'
-                ? '#fbbf24'
-                : '#f87171',
+              status === 'connected' ? '#10b981' :
+              status === 'connecting' ? '#fbbf24' : '#f87171',
           }}
         >
-          {status === 'connected'
-            ? 'phone linked'
-            : status === 'connecting'
-            ? 'waiting...'
-            : status === 'error'
-            ? 'bridge error'
-            : 'disconnected'}
+          {status === 'connected' ? 'Online (Termux)' :
+           status === 'connecting' ? 'Connecting...' :
+           status === 'error' ? 'Offline' : 'Offline'}
         </span>
       </div>
     </div>
