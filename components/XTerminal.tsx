@@ -1,12 +1,16 @@
 'use client'
 
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, useImperativeHandle, forwardRef } from 'react'
 
 const BRIDGE_URL =
   process.env.NEXT_PUBLIC_TERMUX_BRIDGE_URL ||
   'https://respiratory-noted-per-theatre.trycloudflare.com'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
+
+export interface XTerminalHandle {
+  sendCommand: (cmd: string) => void
+}
 
 export interface XTerminalProps {
   onStatusChange?: (status: ConnectionStatus) => void
@@ -15,12 +19,10 @@ export interface XTerminalProps {
   onSessionEnd?: () => void
 }
 
-export default function XTerminal({
-  onStatusChange,
-  onLastCommand,
-  onSessionStart,
-  onSessionEnd,
-}: XTerminalProps) {
+const XTerminal = forwardRef<XTerminalHandle, XTerminalProps>(function XTerminal(
+  { onStatusChange, onLastCommand, onSessionStart, onSessionEnd },
+  ref
+) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<any>(null)
   const socketRef = useRef<any>(null)
@@ -28,6 +30,16 @@ export default function XTerminal({
   const cleanedUpRef = useRef(false)
   const inputBufferRef = useRef('')
   const [status, setStatus] = useState<ConnectionStatus>('connecting')
+
+  useImperativeHandle(ref, () => ({
+    sendCommand(cmd: string) {
+      const socket = socketRef.current
+      const term = termRef.current
+      if (!socket || !term) return
+      socket.emit('terminal-input', cmd + '\r')
+      onLastCommand?.(cmd.trim())
+    },
+  }), [onLastCommand])
 
   const updateStatus = useCallback((s: ConnectionStatus) => {
     setStatus(s)
@@ -174,19 +186,14 @@ export default function XTerminal({
     }
 
     window.addEventListener('resize', handleResize)
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-    }
+    return () => { window.removeEventListener('resize', handleResize) }
   }, [updateStatus, onLastCommand, onSessionStart, onSessionEnd])
 
   useEffect(() => {
     cleanedUpRef.current = false
     let cleanup: (() => void) | undefined
 
-    initTerminal().then((fn) => {
-      cleanup = fn
-    })
+    initTerminal().then((fn) => { cleanup = fn })
 
     return () => {
       cleanedUpRef.current = true
@@ -212,7 +219,7 @@ export default function XTerminal({
           alignItems: 'center',
           gap: 6,
           pointerEvents: 'none',
-          background: 'rgba(10,10,10,0.75)',
+          background: 'rgba(10,10,10,0.80)',
           borderRadius: 6,
           padding: '2px 8px',
         }}
@@ -231,19 +238,12 @@ export default function XTerminal({
               status === 'connecting' ? '0 0 6px #fbbf24' : 'none',
           }}
         />
-        <span
-          style={{
-            fontSize: 11,
-            fontFamily: 'monospace',
-            color:
-              status === 'connected' ? '#10b981' :
-              status === 'connecting' ? '#fbbf24' : '#f87171',
-          }}
-        >
-          {status === 'connected' ? 'Online (Termux)' :
-           status === 'connecting' ? 'Connecting...' : 'Offline'}
+        <span style={{ fontSize: 11, fontFamily: 'monospace', color: status === 'connected' ? '#10b981' : status === 'connecting' ? '#fbbf24' : '#f87171' }}>
+          {status === 'connected' ? 'Online (Termux)' : status === 'connecting' ? 'Connecting...' : 'Offline'}
         </span>
       </div>
     </div>
   )
-}
+})
+
+export default XTerminal
