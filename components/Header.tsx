@@ -69,7 +69,7 @@ export default function Header() {
           <input
             type="text"
             placeholder="Search repositories, issues..."
-            className="w-full pl-10 pr-4 py-2 bg-background border border-card-border rounded-lg text-foreground text-sm placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+            className="w-full pl-10 pr-4 py-2 bg-background border border-card-border rounded-lg text-foreground text-sm placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20"
           />
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function Header() {
 
         {/* GitHub Button */}
         <a
-          href="https://github.com/Davidic-Core"
+          href="https://github.com/dave-clouds"
           target="_blank"
           rel="noopener noreferrer"
           className="p-2 hover:bg-card-border rounded-lg transition-colors"
@@ -165,7 +165,7 @@ export default function Header() {
             <div className="w-8 h-8 bg-gradient-to-br from-accent to-accent-hover rounded-full flex items-center justify-center text-background font-bold text-sm">
               DC
             </div>
-            <span className="hidden sm:inline text-sm font-medium">Davidic-Core</span>
+            <span className="hidden sm:inline text-sm font-medium">dave-clouds</span>
             <ChevronDown className="w-4 h-4 text-text-tertiary" />
           </button>
 

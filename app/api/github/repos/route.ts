@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
-const GITHUB_USERNAME = process.env.GITHUB_USERNAME || 'Davidic-Core'
+const GITHUB_USERNAME = process.env.GITHUB_USERNAME || 'dave-clouds'
 const GITHUB_API = 'https://api.github.com'
 
 const LANGUAGE_COLORS: Record<string, string> = {

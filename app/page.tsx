@@ -124,17 +124,17 @@ export default function Dashboard() {
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-4xl font-bold text-foreground">
-              Welcome back, <span className="text-accent">Davidic-Core</span>
+              Welcome back, <span className="text-accent">dave-clouds</span>
             </h1>
             <p className="text-text-secondary mt-2">
               Live dashboard syncing with{' '}
               <a
-                href="https://github.com/Davidic-Core"
+                href="https://github.com/dave-clouds"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-accent hover:text-accent-hover transition-colors"
               >
-                github.com/Davidic-Core
+                github.com/dave-clouds
               </a>
             </p>
           </div>
