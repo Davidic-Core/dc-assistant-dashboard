@@ -1,215 +1,328 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useRef, useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import LayoutWrapper from '@/components/LayoutWrapper'
-import { Send, Trash2, Copy, AlertCircle } from 'lucide-react'
+import SessionLogPanel, { type SessionEntry } from '@/components/SessionLogPanel'
+import { Maximize2, Minimize2, RefreshCw, Smartphone, Send, ChevronUp, ChevronDown, Terminal as TerminalIcon } from 'lucide-react'
+import type { ConnectionStatus, XTerminalHandle } from '@/components/XTerminal'
 
-interface TerminalCommand {
-  id: string
-  command: string
-  output: string
-  timestamp: string
-}
+const BRIDGE_URL =
+  process.env.NEXT_PUBLIC_TERMUX_BRIDGE_URL ||
+  'https://respiratory-noted-per-theatre.trycloudflare.com'
+
+const XTerminal = dynamic(() => import('@/components/XTerminal'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full text-text-tertiary font-mono text-sm">
+      <span className="animate-pulse">Initialising terminal...</span>
+    </div>
+  ),
+})
+
+const QUICK_CMDS = [
+  'ls -la',
+  'pwd',
+  'git status',
+  'git branch',
+  'uname -a',
+  'date',
+  'whoami',
+  'pkg list-installed',
+]
 
 export default function TerminalPage() {
-  const [terminalHistory, setTerminalHistory] = useState<TerminalCommand[]>([
-    {
-      id: '1',
-      command: 'npm run build',
-      output: '> DC Assistant@1.0.0 build\n> next build\n✓ Compiled successfully!\nFinished in 45.2s',
-      timestamp: new Date(Date.now() - 3600000).toLocaleTimeString(),
-    },
-    {
-      id: '2',
-      command: 'git status',
-      output: 'On branch main\nYour branch is up to date with origin/main.\nnothing to commit, working tree clean',
-      timestamp: new Date(Date.now() - 1800000).toLocaleTimeString(),
-    },
-  ])
-  const [terminalInput, setTerminalInput] = useState('')
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [sessionKey, setSessionKey] = useState(0)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
 
-  const executeCommand = () => {
-    if (!terminalInput.trim()) return
+  const [sessions, setSessions] = useState<SessionEntry[]>([])
+  const [activeSessionStart, setActiveSessionStart] = useState<Date | null>(null)
+  const [activeLastCommand, setActiveLastCommand] = useState('')
+  const sessionIdRef = useRef(0)
+  const activeLastCommandRef = useRef('')
 
-    const newCommand: TerminalCommand = {
-      id: Date.now().toString(),
-      command: terminalInput,
-      output: `$ ${terminalInput}\nCommand executed successfully at ${new Date().toLocaleTimeString()}`,
-      timestamp: new Date().toLocaleTimeString(),
+  const terminalRef = useRef<XTerminalHandle>(null)
+
+  const [cmdInput, setCmdInput] = useState('')
+  const [cmdHistory, setCmdHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleSessionStart = useCallback((time: Date) => {
+    setActiveSessionStart(time)
+    setActiveLastCommand('')
+    activeLastCommandRef.current = ''
+  }, [])
+
+  const handleSessionEnd = useCallback(() => {
+    setActiveSessionStart((prev) => {
+      if (!prev) return null
+      const entry: SessionEntry = {
+        id: ++sessionIdRef.current,
+        startTime: prev,
+        endTime: new Date(),
+        lastCommand: activeLastCommandRef.current,
+        status: 'ended',
+      }
+      setSessions((s) => [...s, entry])
+      return null
+    })
+    setActiveLastCommand('')
+    activeLastCommandRef.current = ''
+  }, [])
+
+  const handleLastCommand = useCallback((cmd: string) => {
+    activeLastCommandRef.current = cmd
+    setActiveLastCommand(cmd)
+  }, [])
+
+  const newSession = useCallback(() => {
+    setSessionKey((k) => k + 1)
+    setConnectionStatus('connecting')
+    setActiveSessionStart(null)
+    setActiveLastCommand('')
+    activeLastCommandRef.current = ''
+  }, [])
+
+  const sendCommand = useCallback((cmd: string) => {
+    const trimmed = cmd.trim()
+    if (!trimmed) return
+    terminalRef.current?.sendCommand(trimmed)
+    setCmdHistory((h) => {
+      const next = [trimmed, ...h.filter((c) => c !== trimmed)].slice(0, 50)
+      return next
+    })
+    setCmdInput('')
+    setHistoryIndex(-1)
+    handleLastCommand(trimmed)
+  }, [handleLastCommand])
+
+  const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      sendCommand(cmdInput)
+      return
     }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setCmdHistory((h) => {
+        const next = Math.min(historyIndex + 1, h.length - 1)
+        setHistoryIndex(next)
+        if (h[next] !== undefined) setCmdInput(h[next])
+        return h
+      })
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const next = Math.max(historyIndex - 1, -1)
+      setHistoryIndex(next)
+      setCmdInput(next === -1 ? '' : cmdHistory[next] ?? '')
+    }
+  }, [cmdInput, cmdHistory, historyIndex, sendCommand])
 
-    setTerminalHistory([...terminalHistory, newCommand])
-    setTerminalInput('')
-  }
+  const statusColor =
+    connectionStatus === 'connected' ? 'text-emerald-400' :
+    connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'
 
-  const clearTerminal = () => {
-    setTerminalHistory([])
-  }
+  const statusDotClass =
+    connectionStatus === 'connected' ? 'bg-emerald-500 shadow-[0_0_5px_#10b981] animate-pulse' :
+    connectionStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' : 'bg-red-400'
 
-  const copyCommand = (command: string, id: string) => {
-    navigator.clipboard.writeText(command)
-    setCopiedId(id)
-    setTimeout(() => setCopiedId(null), 2000)
-  }
+  const statusLabel =
+    connectionStatus === 'connected' ? 'Online (Termux)' :
+    connectionStatus === 'connecting' ? 'Connecting...' : 'Offline'
+
+  const isConnected = connectionStatus === 'connected'
 
   return (
     <LayoutWrapper>
-      <div className="p-6 max-w-5xl mx-auto space-y-6">
-        {/* Header */}
+      <div className="p-6 max-w-6xl mx-auto space-y-5">
         <div>
           <h1 className="text-4xl font-bold text-foreground">Terminal</h1>
           <p className="text-text-secondary mt-2">
-            Execute commands and view terminal output
+            Live Termux session streamed from your phone via Cloudflare tunnel
           </p>
         </div>
 
-        {/* Terminal Window */}
-        <div className="border border-card-border rounded-lg overflow-hidden bg-background">
-          {/* Terminal Header */}
-          <div className="bg-card-border px-4 py-3 flex items-center gap-2 border-b border-card-border">
-            <div className="flex gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500/60" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
-              <div className="w-3 h-3 rounded-full bg-green-500/60" />
-            </div>
-            <span className="text-xs text-text-secondary ml-2">DC Assistant Terminal</span>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-text-tertiary">bash</span>
-              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-            </div>
+        {/* Bridge status bar */}
+        <div className={`flex items-center gap-3 rounded-lg px-4 py-3 border transition-colors ${
+          isConnected
+            ? 'bg-emerald-500/5 border-emerald-500/30'
+            : connectionStatus === 'connecting'
+            ? 'bg-yellow-400/5 border-yellow-400/20'
+            : 'bg-red-400/5 border-red-400/20'
+        }`}>
+          <Smartphone className={`w-4 h-4 flex-shrink-0 ${statusColor}`} />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-text-secondary font-mono truncate">
+              Bridge: <span className="text-accent">{BRIDGE_URL}</span>
+            </p>
           </div>
+          <div className={`flex items-center gap-2 ${statusColor}`}>
+            <div className={`w-2 h-2 rounded-full ${statusDotClass}`} />
+            <span className="text-xs font-mono font-semibold">{statusLabel}</span>
+          </div>
+        </div>
 
-          {/* Terminal Content */}
-          <div className="p-4 space-y-4 font-mono text-sm h-96 overflow-y-auto bg-background">
-            {terminalHistory.length === 0 ? (
-              <div className="text-text-tertiary text-xs opacity-60">
-                <p>Welcome to DC Assistant Terminal</p>
-                <p className="mt-2">Type a command below and press Enter to execute</p>
+        {/* Terminal window */}
+        <div
+          className={`border border-card-border rounded-lg overflow-hidden bg-[#0a0a0a] flex flex-col transition-all duration-200 ${
+            fullscreen ? 'fixed inset-4 z-50' : ''
+          }`}
+        >
+          {/* Title bar */}
+          <div className="bg-card-border px-4 py-2.5 flex items-center gap-2 border-b border-card-border flex-shrink-0">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-500/70" />
+              <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
+              <div className="w-3 h-3 rounded-full bg-green-500/70" />
+            </div>
+            <span className="text-xs text-text-secondary ml-2 font-mono">termux — Davidic-Core</span>
+            <div className="ml-auto flex items-center gap-3">
+              <div className={`flex items-center gap-1.5 ${statusColor}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${statusDotClass}`} />
+                <span className="text-xs font-mono">{statusLabel}</span>
               </div>
-            ) : (
-              terminalHistory.map((cmd) => (
-                <div key={cmd.id} className="space-y-2 group">
-                  <div className="flex items-center gap-2">
-                    <div className="text-accent">
-                      <span>{'$ '}</span>
-                      <span className="text-foreground">{cmd.command}</span>
-                    </div>
-                    <button
-                      onClick={() => copyCommand(cmd.command, cmd.id)}
-                      className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-card-border rounded text-text-tertiary hover:text-accent"
-                      title="Copy command"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
-                    {copiedId === cmd.id && (
-                      <span className="text-xs text-accent">Copied</span>
-                    )}
-                  </div>
-                  <div className="text-text-secondary text-xs whitespace-pre-wrap pl-4 border-l border-card-border/50">
-                    {cmd.output}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Terminal Input */}
-          <div className="border-t border-card-border px-4 py-3 bg-card-border/20 flex gap-2">
-            <span className="text-accent font-mono text-sm">{'$ '}</span>
-            <input
-              type="text"
-              value={terminalInput}
-              onChange={(e) => setTerminalInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && executeCommand()}
-              placeholder="Enter command..."
-              className="flex-1 bg-transparent text-foreground focus:outline-none font-mono text-sm placeholder:text-text-tertiary"
-              autoFocus
-            />
-            <button
-              onClick={executeCommand}
-              className="p-1.5 text-accent hover:text-accent-hover transition-colors hover:bg-card-border/50 rounded"
-              title="Execute command"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Terminal Controls */}
-        <div className="flex gap-2">
-          <button
-            onClick={clearTerminal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-card border border-card-border hover:border-accent/50 hover:bg-card-border/50 text-foreground rounded-lg text-sm transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            Clear Terminal
-          </button>
-        </div>
-
-        {/* Quick Commands */}
-        <div>
-          <h2 className="text-lg font-semibold text-foreground mb-4">Quick Commands</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {[
-              {
-                title: 'Build Project',
-                command: 'npm run build',
-                description: 'Compile your project for production',
-              },
-              {
-                title: 'Start Dev Server',
-                command: 'npm run dev',
-                description: 'Start with hot reload',
-              },
-              {
-                title: 'Run Tests',
-                command: 'npm test',
-                description: 'Execute all tests',
-              },
-              {
-                title: 'View Git Log',
-                command: 'git log --oneline -20',
-                description: 'Show recent commits',
-              },
-              {
-                title: 'Check Dependencies',
-                command: 'npm list --depth=0',
-                description: 'List all dependencies',
-              },
-              {
-                title: 'Git Status',
-                command: 'git status',
-                description: 'Check repository status',
-              },
-            ].map((cmd, index) => (
               <button
-                key={index}
-                onClick={() => {
-                  setTerminalInput(cmd.command)
-                  setTimeout(() => {
-                    const input = document.querySelector('input[type="text"]') as HTMLInputElement
-                    input?.focus()
-                  }, 0)
-                }}
-                className="text-left bg-card border border-card-border rounded-lg p-4 hover:border-accent/50 hover:bg-card-border/50 transition-colors group"
+                onClick={newSession}
+                className="p-1 hover:bg-card-border/80 rounded transition-colors text-text-tertiary hover:text-foreground"
+                title="Reconnect"
               >
-                <p className="font-semibold text-foreground text-sm">{cmd.title}</p>
-                <code className="block text-xs text-accent font-mono mt-2 bg-background px-2 py-1 rounded">
-                  {cmd.command}
-                </code>
-                <p className="text-xs text-text-secondary mt-2">{cmd.description}</p>
+                <RefreshCw className="w-3.5 h-3.5" />
               </button>
-            ))}
+              <button
+                onClick={() => setFullscreen((f) => !f)}
+                className="p-1 hover:bg-card-border/80 rounded transition-colors text-text-tertiary hover:text-foreground"
+                title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              >
+                {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+
+          {/* xterm.js mount */}
+          <div
+            className="flex-1 p-2"
+            style={{ height: fullscreen ? 'calc(100% - 88px)' : '380px' }}
+          >
+            <XTerminal
+              key={sessionKey}
+              ref={terminalRef}
+              onStatusChange={setConnectionStatus}
+              onLastCommand={handleLastCommand}
+              onSessionStart={handleSessionStart}
+              onSessionEnd={handleSessionEnd}
+            />
+          </div>
+
+          {/* ── Command Input Inbox ── */}
+          <div className="border-t border-card-border bg-[#0d0d0d] px-3 py-2.5 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <TerminalIcon className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+              <div className="flex-1 relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={cmdInput}
+                  onChange={(e) => { setCmdInput(e.target.value); setHistoryIndex(-1) }}
+                  onKeyDown={handleInputKeyDown}
+                  placeholder={isConnected ? 'Type a command and press Enter...' : 'Waiting for Termux connection...'}
+                  disabled={!isConnected}
+                  className="w-full bg-transparent font-mono text-sm text-foreground placeholder:text-text-tertiary focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed pr-16"
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoCapitalize="off"
+                />
+                {cmdHistory.length > 0 && (
+                  <span className="absolute right-0 top-1/2 -translate-y-1/2 flex gap-1">
+                    <button
+                      onClick={() => {
+                        const next = Math.min(historyIndex + 1, cmdHistory.length - 1)
+                        setHistoryIndex(next)
+                        setCmdInput(cmdHistory[next] ?? '')
+                      }}
+                      className="p-0.5 text-text-tertiary hover:text-foreground transition-colors"
+                      title="Previous command"
+                    >
+                      <ChevronUp className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const next = Math.max(historyIndex - 1, -1)
+                        setHistoryIndex(next)
+                        setCmdInput(next === -1 ? '' : cmdHistory[next] ?? '')
+                      }}
+                      className="p-0.5 text-text-tertiary hover:text-foreground transition-colors"
+                      title="Next command"
+                    >
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => sendCommand(cmdInput)}
+                disabled={!isConnected || !cmdInput.trim()}
+                className="flex items-center gap-1.5 px-3 py-1 bg-accent hover:bg-accent/80 disabled:opacity-30 disabled:cursor-not-allowed rounded text-background text-xs font-semibold transition-colors flex-shrink-0"
+              >
+                <Send className="w-3 h-3" />
+                Run
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Terminal Info */}
-        <div className="bg-card border border-card-border rounded-lg p-4">
-          <p className="text-sm text-text-secondary">
-            <strong>Note:</strong> This terminal interface simulates command execution. Quick command buttons populate the input field for easy access to common development commands.
-          </p>
-        </div>
+        {/* Quick command buttons */}
+        {!fullscreen && (
+          <div>
+            <p className="text-xs text-text-tertiary font-mono mb-2 uppercase tracking-wider">Quick commands</p>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_CMDS.map((cmd) => (
+                <button
+                  key={cmd}
+                  onClick={() => sendCommand(cmd)}
+                  disabled={!isConnected}
+                  className="px-3 py-1.5 text-xs font-mono bg-card border border-card-border rounded hover:border-accent/50 hover:text-accent text-text-secondary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {cmd}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Command history */}
+        {!fullscreen && cmdHistory.length > 0 && (
+          <div className="bg-card border border-card-border rounded-lg overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-card-border">
+              <p className="text-xs font-semibold text-foreground">Command History</p>
+            </div>
+            <div className="divide-y divide-card-border max-h-48 overflow-y-auto">
+              {cmdHistory.map((cmd, i) => (
+                <button
+                  key={i}
+                  onClick={() => sendCommand(cmd)}
+                  disabled={!isConnected}
+                  className="w-full text-left px-4 py-2 font-mono text-xs text-text-secondary hover:text-accent hover:bg-card-border/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <span className="text-text-tertiary select-none">$</span>
+                  {cmd}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Session log */}
+        {!fullscreen && (
+          <SessionLogPanel
+            sessions={sessions}
+            currentStatus={connectionStatus}
+            activeSessionStart={activeSessionStart}
+            activeLastCommand={activeLastCommand}
+          />
+        )}
       </div>
     </LayoutWrapper>
   )

@@ -1,13 +1,29 @@
 'use client'
 
-import { useState } from 'react'
-import { Send, Loader, Edit2, RotateCcw, Copy, Trash2, Check, X, Square } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Send, Loader, Edit2, RotateCcw, Copy, Trash2, Square } from 'lucide-react'
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  timestamp: string
+  timestamp: Date
+}
+
+function useClientTimestamp() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  return mounted
+}
+
+function MessageTimestamp({ timestamp }: { timestamp: Date }) {
+  const mounted = useClientTimestamp()
+  if (!mounted) return null
+  return (
+    <p className="text-xs mt-1 opacity-70">
+      {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+    </p>
+  )
 }
 
 export default function AIChat() {
@@ -15,11 +31,8 @@ export default function AIChat() {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hello! I&apos;m your AI GitHub Assistant. I can help you with repository insights, commit analysis, and coding questions. What would you like to know?',
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      content: "Hello! I'm your AI GitHub Assistant. I can help you with repository insights, commit analysis, and coding questions. What would you like to know?",
+      timestamp: new Date(),
     },
   ])
   const [input, setInput] = useState('')
@@ -31,31 +44,23 @@ export default function AIChat() {
   const handleSend = () => {
     if (!input.trim()) return
 
-    // Add user message
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: input,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      timestamp: new Date(),
     }
 
     setMessages((prev) => [...prev, userMessage])
     setInput('')
     setIsLoading(true)
 
-    // Simulate AI response
     setTimeout(() => {
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `I&apos;ve analyzed your request about "${input.slice(0, 30)}...". Based on your repositories, I found some interesting insights. Would you like me to elaborate on any specific aspect?`,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
+        content: `I've analyzed your request about "${input.slice(0, 30)}...". Based on your repositories, I found some interesting insights. Would you like me to elaborate on any specific aspect?`,
+        timestamp: new Date(),
       }
       setMessages((prev) => [...prev, aiMessage])
       setIsLoading(false)
@@ -89,11 +94,8 @@ export default function AIChat() {
           const aiMessage: ChatMessage = {
             id: (Date.now() + 1).toString(),
             role: 'assistant',
-            content: `I&apos;ve regenerated my response about "${userMessage.content.slice(0, 30)}...". Here&apos;s a new perspective based on your request.`,
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
+            content: `I've regenerated my response about "${userMessage.content.slice(0, 30)}...". Here's a new perspective based on your request.`,
+            timestamp: new Date(),
           }
           setMessages((prev) => [...prev, aiMessage])
           setIsLoading(false)
@@ -156,9 +158,7 @@ export default function AIChat() {
                 ) : (
                   <>
                     <p className="text-sm">{message.content}</p>
-                    <p className="text-xs mt-1 opacity-70">
-                      {message.timestamp}
-                    </p>
+                    <MessageTimestamp timestamp={message.timestamp} />
                   </>
                 )}
               </div>

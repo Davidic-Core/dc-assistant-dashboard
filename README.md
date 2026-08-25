@@ -114,6 +114,110 @@ dc-assistant-dashboard/
 └── package.json             # Dependencies and scripts
 ```
 
+## Dashboard Terminal Integration
+
+The dashboard terminal is a fully live, interactive bash shell embedded in the browser — not a simulated or mocked interface. Here is how every layer connects.
+
+### How It Works
+
+#### Frontend — xterm.js
+`components/XTerminal.tsx` is a client-only React component (loaded via `next/dynamic` with `ssr: false`) that renders a real terminal emulator in the browser using [xterm.js](https://xtermjs.org/) v5.3.0 with the `FitAddon` for responsive resizing.
+
+- Every keystroke is captured by `term.onData` and forwarded to the server via `socket.emit('input', data)`
+- Server output arrives over `socket.on('output', data)` and is written directly to the terminal with `term.write(data)`
+- ANSI colour codes, arrow keys, tab-completion, and control sequences all work natively through xterm.js
+
+#### Communication — Socket.IO
+[Socket.IO](https://socket.io/) v4.8.3 provides the bidirectional WebSocket channel between browser and server. The client connects to the same origin (`/socket.io`) — no CORS or proxy configuration required.
+
+| Event | Direction | Purpose |
+|---|---|---|
+| `input` | client → server | Keystrokes / commands |
+| `output` | server → client | stdout / stderr output |
+| `resize` | client → server | Terminal resize (cols/rows) |
+
+#### Backend — Node.js custom server (`server.js`)
+`server.js` is a custom Next.js server that wraps the Next.js request handler and attaches a Socket.IO `Server` to the same `http.Server` instance. On each socket connection a dedicated `bash --login` process is spawned via `child_process.spawn`:
+
+```js
+const shell = spawn('bash', ['--login'], {
+  env: { ...process.env, TERM: 'xterm-256color' },
+  cwd: process.cwd(),
+});
+```
+
+- `shell.stdout` and `shell.stderr` pipe directly to `socket.emit('output', data)`
+- `socket.on('input')` pipes directly to `shell.stdin`
+- `socket.on('resize')` calls `shell.resize(cols, rows)` for proper PTY sizing
+- On disconnect the shell process is killed cleanly
+
+#### Error Handling
+- Shell spawn errors emit a red ANSI error message to the terminal: `\x1b[31mShell error: ...\x1b[0m`
+- Socket disconnect always kills the associated shell process to prevent orphaned processes
+- The `dev` script runs `node server.js` (not `next dev`) so the custom server is always active
+
+### Testing the Terminal
+
+1. Open the dashboard and navigate to **Terminal** in the sidebar
+2. Wait for the green `live` indicator to appear in the title bar
+3. Run any real bash command:
+
+```bash
+ls                          # list project files
+git status                  # show current branch and staged changes
+git log --oneline -5        # recent commit history
+cat package.json            # read any file
+echo $TERM                  # should output xterm-256color
+```
+
+4. All output is streamed in real time — long-running commands (e.g. `npm install`) stream line by line as they execute
+
+### Active Branch & Preview
+
+- **Active branch:** `terminal`
+- **Dev server port:** `3001` (custom server, set via `PORT` env var)
+- **Start command:** `npm run dev` → `node server.js`
+
+To preview locally:
+```bash
+npm run dev      # starts Next.js + Socket.IO on port 3001
+# open http://localhost:3001/terminal
+```
+
+To preview via Vercel, deploy from the `terminal` branch. Note that Vercel's serverless runtime does not support persistent WebSocket connections — a Vercel deployment requires migrating Socket.IO to a separate WebSocket server (e.g. Railway or Render) or switching to Edge-compatible long-polling.
+
+### Files Modified / Added
+
+| File | Change |
+|---|---|
+| `server.js` | New — custom Next.js + Socket.IO server with bash shell per connection |
+| `components/XTerminal.tsx` | New — xterm.js terminal component with socket.io-client |
+| `app/terminal/page.tsx` | Modified — replaced mock terminal with live `XTerminal` component |
+| `app/layout.tsx` | Modified — added `import 'xterm/css/xterm.css'`, moved `viewport` to separate export |
+| `package.json` | Modified — `dev`/`start` scripts now run `node server.js` |
+| `.replit` | Modified — workflow command updated to `npm run dev` |
+
+### Verification
+
+The integration was verified end-to-end using a Socket.IO Node.js client:
+
+```
+CONNECTED sid=9NdnU-xh4s0g1aGZAAAE
+[OUT] app
+[OUT] components
+[OUT] server.js
+...
+[OUT] On branch terminal
+[OUT] Changes not staged for commit:
+[OUT]   modified: .replit
+[OUT]   modified: app/layout.tsx
+...
+```
+
+Both `ls` and `git status` returned real server-side output through the live bash shell connection.
+
+---
+
 ## Recent Enhancements
 
 ### AI Chat Panel Refinements
